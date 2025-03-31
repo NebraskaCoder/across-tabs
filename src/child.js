@@ -126,20 +126,26 @@ class Child {
     let dataReceived,
       data = message.data;
 
+    console.debug('Child: Received message:', data);
+
     if (!data || typeof data !== 'string') {
+      console.warn('Child: Invalid message received:', data);
       return;
     }
 
     // `origin` check for secureity point of view
     if (this.config.origin && this.config.origin !== message.origin) {
+      console.warn('Child: Origin mismatch:', { expected: this.config.origin, received: message.origin });
       return;
     }
 
     // cancel timeout
     window.clearTimeout(this.timeout);
+    console.debug('Child: Cleared handshake timeout');
 
     // When Parent tab gets closed or refereshed
     if (data.indexOf(PostMessageEventNamesEnum.PARENT_DISCONNECTED) > -1) {
+      console.debug('Child: Parent disconnected');
       // Call user-defined `onParentDisconnect` callback when Parent tab gets closed or refereshed.
       if (this.config.onParentDisconnect) {
         this.config.onParentDisconnect();
@@ -154,6 +160,7 @@ class Child {
      * along with the tab's identity i.e. id, name and it's parent(itself) to the child tab.
      */
     if (data.indexOf(PostMessageEventNamesEnum.HANDSHAKE_WITH_PARENT) > -1) {
+      console.debug('Child: Received HANDSHAKE_WITH_PARENT');
       let msg;
 
       dataReceived = data.split(PostMessageEventNamesEnum.HANDSHAKE_WITH_PARENT)[1];
@@ -166,6 +173,7 @@ class Child {
         id: this.tabId,
         isSiteInsideFrame: this.config.isSiteInsideFrame
       };
+      console.debug('Child: Sending HANDSHAKE response:', msg);
       this.sendMessageToParent(msg, PostMessageEventNamesEnum.HANDSHAKE);
 
       if (this.config.onInitialize) {
@@ -175,11 +183,14 @@ class Child {
 
     // Whenever Parent tab communicates once the communication channel is established
     if (data.indexOf(PostMessageEventNamesEnum.PARENT_COMMUNICATED) > -1) {
+      console.debug('Child: Received PARENT_COMMUNICATED message');
       dataReceived = data.split(PostMessageEventNamesEnum.PARENT_COMMUNICATED)[1];
 
       try {
         dataReceived = this.config.parse(dataReceived);
+        console.debug('Child: Parsed parent message:', dataReceived);
       } catch (e) {
+        console.error('Child: Error parsing parent message:', e);
         throw new Error(WarningTextEnum.INVALID_JSON);
       }
       // Call user-defined `onParentCommunication` callback when Parent sends a message to Parent tab
@@ -224,17 +235,30 @@ class Child {
    *
    * Send a postmessage to the corresponding Parent tab
    * @param  {String} msg
-=   */
+   */
   sendMessageToParent(msg, _prefixType) {
-    let origin;
-
+    let origin = this.config.origin || '*';
     let type = _prefixType || PostMessageEventNamesEnum.CUSTOM;
-
     msg = type + this.config.stringify(msg);
 
-    if (window.top.opener) {
-      origin = this.config.origin || '*';
+    console.debug('Child: Attempting to send message:', { msg, type, origin });
+
+    // Try to send to parent window first (for iframes)
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage(msg, origin);
+      console.debug('Child: Sent message to parent window:', msg);
+    }
+    // Then try to send to opener (for new windows)
+    else if (window.top.opener) {
       window.top.opener.postMessage(msg, origin);
+      console.debug('Child: Sent message to opener window:', msg);
+    }
+    // If neither exists, try sending to top window
+    else if (window.top && window.top !== window) {
+      window.top.postMessage(msg, origin);
+      console.debug('Child: Sent message to top window:', msg);
+    } else {
+      console.warn('Child: No valid parent window found to send message to');
     }
   }
 
@@ -259,10 +283,15 @@ class Child {
    */
   init() {
     this.isSessionStorageSupported = this._isSessionStorage();
+    console.debug('Child: Initializing with sessionStorage support:', this.isSessionStorageSupported);
+    
     this.addListeners();
     this._restoreData();
+    
+    console.debug('Child: Sending LOADED message to parent');
     this.sendMessageToParent(this.getTabInfo(), PostMessageEventNamesEnum.LOADED);
     this.timeout = this.setHandshakeExpiry();
+    console.debug('Child: Set handshake expiry timeout');
 
     if (this.config.onReady) {
       this.config.onReady();

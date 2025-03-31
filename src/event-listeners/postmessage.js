@@ -37,11 +37,14 @@ PostMessageListener._onLoad = data => {
     dataToSend,
     tabInfo = data.split(PostMessageEventNamesEnum.LOADED)[1];
 
+  console.debug('Parent: Received LOADED message from child:', tabInfo);
+
   // Child was opened but parent got refereshed, opened a tab i.e.
   // last opened tab will get refreshed(browser behavior). WOW! Handle this now.
   if (tabInfo) {
     try {
       tabInfo = tabUtils.config.parse(tabInfo);
+      console.debug('Parent: Parsed LOADED message:', tabInfo);
       // If Child knows its UUID, means Parent was refreshed and Child did not
       if (tabInfo.id) {
         tabs = tabUtils.getAll();
@@ -49,9 +52,11 @@ PostMessageListener._onLoad = data => {
           window.newlyTabOpened = tabs[tabs.length - 1];
           window.newlyTabOpened.id = tabInfo.id;
           window.newlyTabOpened.name = tabInfo.name || tabInfo.windowName;
+          console.debug('Parent: Updated newlyTabOpened:', window.newlyTabOpened);
         }
       }
     } catch (e) {
+      console.error('Parent: Error parsing LOADED message:', e);
       throw new Error(WarningTextEnum.INVALID_JSON);
     }
   }
@@ -64,10 +69,14 @@ PostMessageListener._onLoad = data => {
         name: window.newlyTabOpened.name || window.newlyTabOpened.windowName,
         parentName: window.name
       });
+      console.debug('Parent: Sending HANDSHAKE_WITH_PARENT to child:', dataToSend);
       tabUtils.sendMessage(window.newlyTabOpened, dataToSend, tabInfo.isSiteInsideFrame);
     } catch (e) {
+      console.error('Parent: Error sending HANDSHAKE_WITH_PARENT:', e);
       throw new Error(WarningTextEnum.INVALID_JSON);
     }
+  } else {
+    console.warn('Parent: No newlyTabOpened found to send HANDSHAKE_WITH_PARENT');
   }
 };
 
@@ -82,9 +91,13 @@ PostMessageListener._onCustomMessage = (data, type) => {
     eventData,
     tabInfo = data.split(type)[1];
 
+  console.debug('Parent: Received custom message:', { data, type, tabInfo });
+
   try {
     tabInfo = tabUtils.config.parse(tabInfo);
+    console.debug('Parent: Parsed custom message:', tabInfo);
   } catch (e) {
+    console.error('Parent: Error parsing custom message:', e);
     throw new Error(WarningTextEnum.INVALID_JSON);
   }
 
@@ -94,9 +107,8 @@ PostMessageListener._onCustomMessage = (data, type) => {
   };
 
   event = new CustomEvent('onCustomChildMessage', { detail: eventData });
-
+  console.debug('Parent: Dispatching onCustomChildMessage event:', eventData);
   window.dispatchEvent(event);
-  // window.newlyTabOpened = null;
 };
 
 /**

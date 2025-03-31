@@ -142,10 +142,13 @@ class Parent {
    */
   customEventUnListener(ev) {
     this.enableElements();
+    console.debug('Parent: Received custom event:', ev.detail);
 
     if (ev.detail && ev.detail.type === PostMessageEventNamesEnum.HANDSHAKE && this.onHandshakeCallback) {
+      console.debug('Parent: Handshake received from child:', ev.detail.tabInfo);
       this.onHandshakeCallback(ev.detail.tabInfo);
     } else if (ev.detail && ev.detail.type === PostMessageEventNamesEnum.CUSTOM && this.onChildCommunication) {
+      console.debug('Parent: Custom message received from child:', ev.detail.tabInfo);
       this.onChildCommunication(ev.detail.tabInfo);
     }
   }
@@ -156,15 +159,19 @@ class Parent {
   addEventListeners() {
     window.removeEventListener('message', PostMessageListener.onNewTab);
     window.addEventListener('message', PostMessageListener.onNewTab);
+    console.debug('Parent: Added message event listener');
 
     window.removeEventListener('onCustomChildMessage', this.customEventUnListener);
     window.addEventListener('onCustomChildMessage', ev => this.customEventUnListener(ev));
+    console.debug('Parent: Added custom child message event listener');
 
     window.removeEventListener('onChildUnload', this.onChildUnload);
     window.addEventListener('onChildUnload', ev => this.onChildUnload(ev));
+    console.debug('Parent: Added child unload event listener');
 
     // Let children tabs know when Parent is closed / refereshed.
     window.onbeforeunload = () => {
+      console.debug('Parent: Broadcasting disconnect to all children');
       tabUtils.broadCastAll(PostMessageEventNamesEnum.PARENT_DISCONNECTED);
     };
   }
