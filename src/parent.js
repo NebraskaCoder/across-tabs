@@ -67,7 +67,13 @@ class Parent {
        * irrespective of heatbeat controller
        */
       if (tabs[i] && tabs[i].ref) {
-        tabs[i].status = tabs[i].ref.closed ? TabStatusEnum.CLOSE : TabStatusEnum.OPEN;
+        // For iframes, we consider them closed if they're not in the DOM
+        if (tabs[i].ref instanceof HTMLIFrameElement) {
+          tabs[i].status = document.body.contains(tabs[i].ref) ? TabStatusEnum.OPEN : TabStatusEnum.CLOSE;
+        } else {
+          // For windows, use the closed property
+          tabs[i].status = tabs[i].ref.closed ? TabStatusEnum.CLOSE : TabStatusEnum.OPEN;
+        }
       }
     }
 
@@ -95,8 +101,16 @@ class Parent {
     if (!tab || !tab.ref) {
       return false;
     }
-    let newStatus = tab.ref.closed ? TabStatusEnum.CLOSE : TabStatusEnum.OPEN,
-      oldStatus = tab.status;
+
+    let newStatus;
+    if (tab.ref instanceof HTMLIFrameElement) {
+      // For iframes, we consider them closed if they're not in the DOM
+      newStatus = document.body.contains(tab.ref) ? TabStatusEnum.OPEN : TabStatusEnum.CLOSE;
+    } else {
+      // For windows, use the closed property
+      newStatus = tab.ref.closed ? TabStatusEnum.CLOSE : TabStatusEnum.OPEN;
+    }
+    let oldStatus = tab.status;
 
     // If last and current status(inside a polling interval) are same, don't do anything
     if (!newStatus || newStatus === oldStatus) {
