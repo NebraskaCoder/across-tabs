@@ -1,4 +1,4 @@
-## <img src="https://raw.githubusercontent.com/wingify/across-tabs/master/across-tabs.png" alt="Across tabs" width="50" height="50"/> AcrossTabs - Easy communication between cross-origin browser tabs.
+## <img src="https://raw.githubusercontent.com/wingify/across-tabs/master/across-tabs.png" alt="Across tabs" width="50" height="50"/> AcrossTabs - Easy communication between cross-origin browser tabs and iframes.
 
 [![npm version](https://badge.fury.io/js/across-tabs.svg)](https://www.npmjs.com/package/across-tabs) [![npm](https://img.shields.io/npm/dt/across-tabs.svg)](https://www.npmjs.com/package/across-tabs) [![Build Status](http://img.shields.io/travis/wingify/across-tabs/master.svg?style=flat)](http://travis-ci.org/wingify/across-tabs) [![Coverage Status](https://coveralls.io/repos/github/wingify/across-tabs/badge.svg?branch=master)](https://coveralls.io/github/wingify/across-tabs?branch=master) ![](https://img.shields.io/cdnjs/v/across-tabs.svg?colorB=dd4814) ![](http://img.badgesize.io/wingify/across-tabs/master/dist/across-tabs.min.js?compression=gzip&color=blue)
 
@@ -25,7 +25,7 @@
 
 ### Features
 
-1. Safely enables [cross-origin](https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS) communication among different browser tabs. Uses `PostMessage` API for communication.
+1. Safely enables [cross-origin](https://developer.mozilla.org/en-US/docs/Web/HTTP/Access_control_CORS) communication among different browser tabs and iframes. Uses `PostMessage` API for communication.
 2. Easy to hook custom callback at various levels. Eg: executing a custom method in Child's tab on receiving a message from Parent tab.
 3. Option to provide `data-tab-opener="name"` attribute on the target link/button(which opens up a new tab), so that it remains to disable until `Child` tab initiates a handshake and is received by the `Parent` tab
 4. Fully fledged API to get information regarding the tabs(Parent and Child tabs) and other communication-related methods.
@@ -56,12 +56,12 @@ $ bower install across-tabs
 
 ### Flow Diagram
 
-- Opener/Parent tab(`P`) opens up a new Child tab(`C`).
-- `C` initiates a handshake with the `P` tab by sending a `postMessage`.
-- `P` acknowledges the request and sends `C` it's identity i.e. `UUID` along with `P` information.
-- This sets up a communication channel between Parent and Child tab.
-- Now, `P` and `C` can share custom messages with each other.
-- Whenever `C` gets closed/refreshed, `P` is notified.
+- Opener/Parent tab(`P`) opens up a new Child tab(`C`) or creates an iframe(`I`).
+- `C`/`I` initiates a handshake with the `P` tab by sending a `postMessage`.
+- `P` acknowledges the request and sends `C`/`I` it's identity i.e. `UUID` along with `P` information.
+- This sets up a communication channel between Parent and Child tab/iframe.
+- Now, `P` and `C`/`I` can share custom messages with each other.
+- Whenever `C`/`I` gets closed/refreshed, `P` is notified.
 - Whenever `P` is closed/refreshed, all children of `P` tab gets notified.
 
 <img src="https://raw.githubusercontent.com/wingify/across-tabs/master/parent-tab-communication.jpg" />
@@ -194,9 +194,6 @@ var child =  new AcrossTabs.Child(config);
 | **parse**                 | JSON.parse     | Function                               |
 | **stringify**             | JSON.stringify | Function                               |
 
-**Example** is included in the `example` folder. `Vanilla JS` and `Vue js` versions are there to test out.
-_Note:_ Run `npm install` if you wish to run `vuejs` example since the example needs the `vue-js` library to work.
-
 ### API
 
 Refer [above section](#create-an-instance--reference-before-using) on how to create an instance before hitting API methods.
@@ -205,15 +202,38 @@ Refer [above section](#create-an-instance--reference-before-using) on how to cre
 
 - **`openNewTab`**
 
-  Saves `data` in specific `key` in sessionStorage. If the key is not provided, the library will warn.
-  Following types of JavaScript objects are supported:
-
-  | Parameter | Description                                   |
-  | --------- | --------------------------------------------- |
-  | config    | For opening a new tab i.e. URL and windowName |
+  Opens a new tab or creates an iframe. The config object can include:
+  - `url`: The URL to load in the tab/iframe (required for new tabs/iframes, optional when using iframeRef)
+  - `windowName`: Name for the window (for tabs only)
+  - `windowFeatures`: Window features (for tabs only)
+  - `iframe`: Set to `true` to create an iframe instead of opening a new tab
+  - `iframeStyle`: Object with CSS styles to apply to the iframe (only used when creating new iframes)
+  - `iframeRef`: Reference to an existing iframe element (useful for React refs)
 
   ```
-    parent.openNewTab({url: 'http://example.com', windowName: 'AcrossTab'});
+    // Open a new tab
+    parent.openNewTab({
+      url: 'http://example.com', 
+      windowName: 'AcrossTab'
+    });
+
+    // Create a new iframe
+    parent.openNewTab({
+      url: 'http://example.com',
+      iframe: true,
+      iframeStyle: {
+        display: 'block',
+        width: '100%',
+        height: '500px'
+      }
+    });
+
+    // Use an existing iframe (e.g. from React ref)
+    const iframeRef = document.querySelector('#my-iframe');
+    parent.openNewTab({
+      iframe: true,
+      iframeRef: iframeRef
+    });
   ```
 
 - **`enableElements`**
@@ -252,7 +272,7 @@ Refer [above section](#create-an-instance--reference-before-using) on how to cre
 
 - **`closeAllTabs`**
 
-  Closes all the opened tabs.
+  Closes all the opened tabs and removes all iframes.
 
   ```
     parent.closeAllTabs()
@@ -260,7 +280,7 @@ Refer [above section](#create-an-instance--reference-before-using) on how to cre
 
 - **`closeTab`**
 
-  Closes a particular tab whose id is provided.
+  Closes a particular tab or removes an iframe whose id is provided.
 
   | Parameter | Description                |
   | --------- | -------------------------- |
@@ -272,7 +292,7 @@ Refer [above section](#create-an-instance--reference-before-using) on how to cre
 
 - **`broadCastAll`**
 
-  Sends a same `message` to all the opened tabs.
+  Sends a same `message` to all the opened tabs and iframes.
 
   | Parameter | Description   |
   | --------- | ------------- |
@@ -284,7 +304,7 @@ Refer [above section](#create-an-instance--reference-before-using) on how to cre
 
 - **`broadCastTo`**
 
-  Sends a `message` to a particular opened tab.
+  Sends a `message` to a particular opened tab or iframe.
 
   | Parameter | Description                  |
   | --------- | ---------------------------- |

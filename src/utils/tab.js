@@ -45,6 +45,7 @@ tabUtils._preProcessMessage = msg => {
 
   return msg;
 };
+
 /**
  * Add a new tab to the Array of tabs
  * @param  {Object} tab
@@ -54,6 +55,7 @@ tabUtils.addNew = tab => {
   tabUtils.tabs.push(tab);
   return this;
 };
+
 /**
  * Filter out all the opened tabs
  * @return {Array} - only the opened tabs
@@ -61,6 +63,7 @@ tabUtils.addNew = tab => {
 tabUtils.getOpened = () => {
   return tabUtils.tabs.filter(tab => tab.status === TabStatusEnum.OPEN);
 };
+
 /**
  * Filter out all the closed tabs
  * @return {Array} - only the closed tabs
@@ -68,6 +71,7 @@ tabUtils.getOpened = () => {
 tabUtils.getClosed = () => {
   return tabUtils.tabs.filter(tab => tab.status === TabStatusEnum.CLOSE);
 };
+
 /**
  * To get list of all tabs(closed/opened).
  * Note: Closed tabs will not be returned if `removeClosedTabs` key is paased while instantiaiting Parent.
@@ -86,13 +90,17 @@ tabUtils.closeTab = id => {
   let tab = arrayUtils.searchByKeyName(tabUtils.tabs, 'id', id);
 
   if (tab && tab.ref) {
-    tab.ref.close();
+    if (tab.ref instanceof HTMLIFrameElement) {
+      tab.ref.remove();
+    } else {
+      tab.ref.close();
+    }
     tab.status = TabStatusEnum.CLOSE;
   }
 
   return tabUtils;
-  // --tabUtils.tabs.length;
 };
+
 /**
  * Close all opened tabs using a native method `close` available on window.open reference.
  * @return {tabUtils} this
@@ -102,13 +110,18 @@ tabUtils.closeAll = () => {
 
   for (i = 0; i < tabUtils.tabs.length; i++) {
     if (tabUtils.tabs[i] && tabUtils.tabs[i].ref) {
-      tabUtils.tabs[i].ref.close();
+      if (tabUtils.tabs[i].ref instanceof HTMLIFrameElement) {
+        tabUtils.tabs[i].ref.remove();
+      } else {
+        tabUtils.tabs[i].ref.close();
+      }
       tabUtils.tabs[i].status = TabStatusEnum.CLOSE;
     }
   }
 
   return tabUtils;
 };
+
 /**
  * Send a postmessage to every opened Child tab(excluding itself i.e Parent Tab)
  * @param  {String} msg
@@ -126,6 +139,7 @@ tabUtils.broadCastAll = (msg, isSiteInsideFrame) => {
 
   return tabUtils;
 };
+
 /**
  * Send a postmessage to a specific Child tab
  * @param  {String} id
@@ -138,7 +152,7 @@ tabUtils.broadCastTo = (id, msg, isSiteInsideFrame) => {
 
   msg = tabUtils._preProcessMessage(msg);
 
-  targetedTab = arrayUtils.searchByKeyName(tabs, 'id', id); // TODO: tab.id
+  targetedTab = arrayUtils.searchByKeyName(tabs, 'id', id);
   tabUtils.sendMessage(targetedTab, msg, isSiteInsideFrame);
 
   return tabUtils;
@@ -152,7 +166,17 @@ tabUtils.broadCastTo = (id, msg, isSiteInsideFrame) => {
  */
 tabUtils.sendMessage = (target, msg, isSiteInsideFrame) => {
   let origin = tabUtils.config.origin || '*';
-  if (isSiteInsideFrame && target.ref[0]) {
+  
+  if (!target || !target.ref) {
+    return;
+  }
+
+  if (target.ref instanceof HTMLIFrameElement) {
+    // For iframes, we need to wait for the iframe to load before sending messages
+    if (target.ref.contentWindow) {
+      target.ref.contentWindow.postMessage(msg, origin);
+    }
+  } else if (isSiteInsideFrame && target.ref[0]) {
     for (let i = 0; i < target.ref.length; i++) {
       target.ref[i].postMessage(msg, origin);
     }
